@@ -1,0 +1,502 @@
+<!DOCTYPE html><html><head><title></title><meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=0" /><style type='text/css'>
+body {
+  font-family:'Helvetica';
+  letter-spacing:-5px;
+  background:#FFFFFF;
+  background-size:100%;
+  color:#FF0000;
+  margin:0;
+  padding:0;
+  font-weight:bold;
+}
+
+h1, h2, h3, p {
+  margin:0;
+}
+
+em, a {
+  font-style:normal;
+  color:#FF0000;
+}
+
+a {
+  background:#FF0000;
+  color:#FFF;
+  text-decoration:none;
+}
+
+p {
+  display: none;
+}
+
+img {
+  width:100%;
+}
+
+body > div {
+  cursor:pointer;
+  cursor:hand;
+  position:absolute;
+  top:0px;
+  left:0px;
+  padding:75px;
+  line-height:97%;
+}
+
+div.center {
+  text-align:center;
+}
+
+div.imageText {
+  text-shadow:0px 0px 5px rgba(0,0,0,0.2);
+}
+
+notes {
+    display:none;
+}
+/* normally not good, but ok in context of full screen directional navigation */
+:focus {
+    outline: 0;
+}
+
+@-webkit-keyframes blinker {
+  from { opacity: 1.0; }
+  to { opacity: 0.0; }
+}
+.blink {
+  -webkit-animation-name: blinker;
+  -webkit-animation-iteration-count: infinite;
+  -webkit-animation-timing-function: cubic-bezier(1.0,0,0,1.0);
+  -webkit-animation-duration: 800ms;
+}
+
+.strike{
+  text-decoration: line-through;
+}
+</style><script type='text/javascript'>
+window.onload = function() {
+
+  var synth = window.speechSynthesis;
+  voices = synth.getVoices();
+  console.log(voices);
+
+  var s = document.querySelectorAll('body > div'), ti, i;
+  var notes = [];
+  for (i = 0; i < s.length; i++) {
+    s[i].setAttribute('tabindex', 0);
+    var noteElements = s[i].getElementsByTagName('notes');
+    notes.push([]);
+    while (noteElements.length) {
+      var note = noteElements[0];
+      notes[i].push(note.innerHTML.trim());
+      note.parentNode.removeChild(note);
+    }
+  }
+  if (!s.length) return;
+  var big = window.big = { current: 0, forward: fwd, reverse: rev, go: go, length: s.length };
+  function resize() {
+    var w = window.innerWidth, h = window.innerHeight, e = s[big.current];
+    e.style.fontSize = h + 'px';
+    function pass(cinch, start) {
+      for (var i = start; i > 0 && (e.offsetWidth > w || e.offsetHeight > h); i -= cinch) {
+        e.style.fontSize = i + 'px';
+      }
+      return i + cinch;
+    }
+    pass(2, pass(5, pass(10, h - 2)));
+    e.style.marginTop = (h - e.offsetHeight) / 2 + 'px';
+  }
+  function go(n) {
+    big.current = n;
+    for (i = 0; typeof console === 'object' && i < notes[n].length; i++) console.log('%c%s: %s', 'padding:5px;font-family:serif;font-size:18px;line-height:150%;', n, notes[n][i]);
+    var e = s[n], t = parseInt(e.getAttribute('data-time-to-next') || 0, 10);
+    document.body.className = e.getAttribute('data-bodyclass') || '';
+    for (i = 0; i < s.length; i++) s[i].style.display = 'none';
+    e.style.display = 'inline';
+    e.focus();
+    if (e.firstChild && e.firstChild.nodeName === 'IMG') {
+      document.body.style.backgroundImage = 'url("' + e.firstChild.src + '")';
+      e.firstChild.style.display = 'none';
+      if ('classList' in e) e.classList.add('imageText');
+    } else {
+      document.body.style.backgroundImage = '';
+      document.body.style.backgroundColor = e.style.backgroundColor;
+    }
+    if (ti !== undefined) window.clearInterval(ti);
+    if (t > 0) ti = window.setTimeout(fwd, t * 1000);
+    resize();
+    if (window.location.hash !== n) window.location.hash = n;
+    document.title = e.textContent || e.innerText;
+  }
+  document.onclick = function(e) { if (e.target.tagName !== 'A') go(++big.current % s.length); };
+
+  var n = 1;
+
+  function getDiv() {
+      var x = document.getElementsByTagName("P")[big.current].textContent;
+      n++;
+      return x;
+  }
+
+  function fwd() { 
+    go(Math.min(s.length - 1, ++big.current));
+    spik();
+    
+  }
+  function rev() { 
+    go(Math.max(0, --big.current)); 
+    spik();
+  }
+
+  function spik(){
+    var text = getDiv();
+    console.log(text);
+
+    var utterance = new SpeechSynthesisUtterance();
+    utterance.text = text;
+    utterance.rate = 0.7;
+    utterance.lang = "it-IT";
+    speechSynthesis.speak(utterance);
+  }
+
+  document.onkeydown = function(e) {
+    if (e.which === 39 || e.which === 34 || e.which === 40) fwd();
+    if (e.which === 37 || e.which === 33 || e.which === 38) rev();
+
+  };
+  document.ontouchstart = function(e) {
+    var x0 = e.changedTouches[0].pageX;
+    document.ontouchend = function(e2) {
+      var x1 = e2.changedTouches[0].pageX;
+      if (x1 - x0 < 0) fwd();
+      if (x1 - x0 > 0) rev();
+    };
+  };
+  function parse_hash() {
+    return Math.max(Math.min(s.length - 1,
+      parseInt(window.location.hash.substring(1), 10)), 0);
+  }
+  if (window.location.hash) big.current = parse_hash() || big.current;
+  window.onhashchange = function() {
+    i = parse_hash();
+    if (i !== big.current) go(i);
+  };
+  window.onresize = resize;
+  go(big.current);
+};
+</script></head>
+
+<body>
+  <!--#1-->
+  <div>+++</div>
+  <p id='speak'></p>
+
+
+  <!--#1-->
+  <div>THIS.ASTRO</div>
+  <p id='speak'>dis . astro</p>
+
+  <!--#1-->
+  <div>Salvatore Iaconesi e Oriana Persico</div>
+  <p id='speak'>di Salvatore Iaconesi e Oriana Persico</p>
+
+  <!--#1-->
+  <div>2012</div>
+  <p id='speak'>del 2012</p>
+
+  <!--#1-->
+  <div>
+     ......
+  </div>
+  <p id='speak'></p>
+
+
+  <!--#1-->
+  <div>l'Astrologia</div>
+  <p id='speak'>L’astrologia</p>
+
+  <!--#1-->
+  <div><img src='astro.png'/></div>
+  <p id='speak'>il discorso sugli astri.</p>
+
+  <!--#1-->
+  <div><img src='astro.png'/></div>
+  <p id='speak'>Gli astri: le stelle, la luna, i pianeti. Hanno accompagnato la vita dell’essere umano da migliaia di anni.</p>
+
+
+  <!--#1-->
+  <div>occhi</div>
+  <p id='speak'>A un certo punto l’essere umano ha alzato gli occhi e ha visto gli astri.</p>
+
+
+  <!--#1-->
+  <div>~~~~~~</div>
+  <p id='speak'>Vivendo la sua vita, ha notato certe regolarità.</p>
+
+  <!--#1-->
+  <div><img src='maree.png'/></div>
+  <p id='speak'>le maree</p>
+
+
+  <!--#1-->
+  <div><img src='stagioni.png'/></div>
+  <p id='speak'>le stagioni</p>
+
+
+  <!--#1-->
+  <div><img src='utero.png'/></div>
+  <p id='speak'>il ciclo mestruale</p>
+
+
+  <!--#1-->
+  <div><img src='const.png'/></div>
+  <p id='speak'>le costellazioni: gruppi di stelle che si muovevano insieme in maniera coerente e riconoscibile</p>
+
+
+  <!--#1-->
+  <div><img src='fruit.png'/></div>
+  <p id='speak'>piante che spuntavano, fiorivano o producevano frutti.</p>
+
+
+  <!--#1-->
+  <div><img src='pizza.png'/></div>
+  <p id='speak'>la pizza</p>
+
+  <!--#1-->
+  <div class="blink">X</div>
+  <p id='speak'>Ah. </p>
+
+  <!--#1-->
+  <div class="blink">X</div>
+  <p id='speak'>No.</p>
+
+  <!--#1-->
+  <div class="blink">X</div>
+  <p id='speak'>La pizza no.</p>
+
+  <!--#1-->
+  <div class="blink">:)</div>
+  <p id='speak'>Scusate, sono solo una IA.</p>
+
+  <!--#1-->
+  <div><img src='earth.png'/></div>
+  <p id='speak'>Salute, cibo, possibilità di orientarsi, clima: tutte queste cose erano in qualche modo collegate con gli astri.</p>  
+
+  <!--#1-->
+  <div>COSMO</div>
+  <p id='speak'>L’essere umano è un essere cosmico: ha bisogno di posizionarsi e di relazionarsi con il cosmo e di avere una cosmologia per trarre senso dal mondo.</p>
+
+  <!--#1-->
+  <div>!</div>
+  <p id='speak'>È il nostro linguaggio a dircelo.</p>
+
+  <!--#1-->
+  <div>dis-astro</div>
+  <p id='speak'>Disastro vuol dire letteralmente senza stelle. Come il mare col cielo scuro e nuvoloso. In cui perdersi è cosa certa.</p>
+
+  <!--#1-->
+  <div>desiderio</div>
+  <p id='speak'>Oppure “Desiderio”. Un’altra mancanza di stelle che indica ciò che vogliamo.</p>
+
+  <!--#1-->
+  <div>ASTRI</div>
+  <p id='speak'>Il destino dell’essere umano è sempre stato collegato agli astri. 
+  Immerso nel cosmo si poteva orientare. 
+  Coltivare. 
+  Curare la propria salute. 
+  Cacciare. 
+  Rispettare l’ecosistema. 
+  Disporre tempi e di rituali per costruire le proprie comunità.
+  Per fare le guerre e la pace.</p>
+
+  <!--#1-->
+  <div>SUPERSTIZIONI</div>
+  <p id='speak'>Potrebbero sembrare semplici superstizioni del passato. 
+  Superate dalle scienze e dalle tecnologie.</p>
+
+
+  <!--#1-->
+  <div class="blink strike">SUPERSTIZIONI</div>
+  <p id='speak'>Se le considerassimo in questo modo sbaglieremmo. 
+  Perché scienze e tecnologie hanno solo trasformato quel cosmo e il cielo in cui cercavamo la nostra posizione e le traiettorie dei nostri destini.
+  Potremmo anzi chederci quanto oggi siamo capaci di percepire il nostro cosmo. 
+  Il modo in cui è cambiato e la posizione che occupiamo.</p>
+
+
+
+  <!--#1-->
+  <div ><em>THIS.ASTRO</em></div>
+  <p id='speak'>This.Astro è un’opera che parla proprio di questo.</p>
+
+
+  <!--#1-->
+  <div class="blink"><em>THIS.ASTRO</em></div>
+  <p id='speak'>Creata nel 2012 per il Global Astronomy month ed esposta al museo MACRO di Roma.
+  Ha avuto la curatela di Elena Abbiatici e Valentina Levy. 
+  L’opera esplora la connessione tra astri, e destino dell’essere umano nel mondo contemporaneo.</p>
+
+
+  <!--#1-->
+  <div><img src='satell.png'/></div>
+  <p id='speak'>Sì, perché scienza e tecnologia hanno creato nuovi astri che ci permettono di orientarci.
+    Curarci. 
+    Coltivare.
+    Prevedere e trovare il nostro posto nel mondo.
+    Satelliti di comunicazione. 
+    GPS.
+    Dotati di sensori. 
+    Fotocamere. 
+    Laser.
+    Emettitori di onde e particelle. 
+    Sono loro i nuovi astri.
+</p>
+
+  <!--#1-->
+  <div>IPERCONNESSIONE</div>
+  <p id='speak'>Nel mondo iperconnesso, questi astri tecnologici animano la maggior parte delle cose che usiamo.</p>
+
+  <!--#1-->
+  <div><img src='aroundearth.png'/></div>
+  <p id='speak'>Ci permettono di studiare i fenomeni planetari come il cambiamento climatico. 
+  La salute degli ecosistemi. 
+  Le migrazioni. 
+  L’inquinamento. 
+  Da lì passano comunicazione, servizi, salute.  </p>
+
+
+  <!--#1-->
+  <div>destino</div>
+  <p id='speak'>C’è una forte relazione tra destino dell’essere umano e questi nuovi astri da cui dipende anche la nostra sopravvivenza.</p>
+
+
+  <!--#1-->
+  <div><img src='two.png'/></div>
+  <p id='speak'>L’opera è composta da due elementi.
+  L’installazione chiamata this.astro e il workshop urbano che si intitola come in cielo così in terra.
+  I due elementi descrivono due possibili direzioni dei collegamenti tra astri e destino.</p>
+
+  <!--#1-->
+  <div>
+     <img src='first.png'/>
+  </div>
+  <p id='speak'>L'installazione disastro è un video generativo: non finisce mai.
+  La direzione è dal destino agli astri. 
+  Cioè di come le persone usano le tecnologie per tentare di costruire il proprio destino.
+  Le tecnologie studiate sono quelle della comunicazione. 
+  I social media. 
+  Internet. 
+  La messaggistica.</p>
+
+
+  <!--#1-->
+  <div>
+     <img src='second.png'/>
+  </div>
+  <p id='speak'>
+    Disastro raccoglie tantissimi messaggi sui social generati nell’intorno del luogo fisico in cui è sita l’installazione.
+    Li analizza per vedere di quali argomenti parlano.
+    Facendolo crea dei collegamenti tra i temi quando se ne parla insieme. 
+    Cambiamento climatico e consumo energetico. 
+    Calcio e politica.
+    Moda e spettacolo.
+    E tantissimi altri.
+  </p>
+
+
+  <!--#1-->
+  <div>
+    <video width="960" height="720" autoplay muted>
+      <source src="thisvideo.mp4" type="video/mp4">
+      Your browser does not support the video tag.
+    </video> 
+  </div>
+  <p id='speak'>
+    Unendo questi collegamenti si formano le costellazioni.
+    Gli esseri umani si posizionano nella comunicazione usando le tecnologie per influire sul proprio destino.
+    Per stringere relazioni. 
+    Lavorare. 
+    Cercare informazioni. 
+    Comprendere il mondo e occuparsi delle cose e delle persone.
+  </p>
+
+
+  <!--#1-->
+  <div>
+     <img src='first.png'/>
+  </div>
+  <p id='speak'>La seconda componente dell’opera è un workshop che si fa camminando nelle città. 
+    Per vivere il collegamento tra città, tecnologia e il destino dell’essere umano. 
+    La direzione qui è inversa:  dagli astri alla città.
+    Al destino.
+  </p>
+
+
+  <!--#1-->
+  <div>
+     <img src='work.jpg'/>
+  </div>
+  <p id='speak'>
+    Il workshop si fa utilizzando una app.
+    La prima parte si svolge insegnando ai partecipanti come si fa una app di questo genere.
+    Poi si va tutti per strada e si inizia.
+  </p>
+
+  <!--#1-->
+  <div>
+     <img src='work2.jpg'/>
+  </div>
+  <p id='speak'>È come un gioco.
+    Si sceglie una costellazione fatta di stelle o di satelliti e si cerca di ricreare la forma della costellazione usando la forma della città. 
+    Con una dimensione il più grande possibile.
+  </p>
+
+  <!--#1-->
+  <div>
+     <img src='second.png'/>
+  </div>
+  <p id='speak'>
+    Le persone scelgono la costellazione e ognuno prende una stella.
+    Si dispongono per le strade in qualsiasi modo.
+    Per le piazze. 
+    I negozi e le case della loro città. 
+    Per avvicinarsi il più possibile alla forma della costellazione.
+    Per riprodurla in dimensioni sempre più grandi.
+    Si crea quindi un parallelo tra costellazioni e città mediato dalla tecnologia.
+  </p>
+
+
+  <!--#1-->
+  <div>
+     <img src='two.png'/>
+  </div>
+  <p id='speak'>
+    Questi due elementi sono Rituali del Nuovo Abitare.
+    Descrivono nuovi modi per conoscere ed avere esperienza dei fenomeni complessi tramite i dati e la computazione.
+  </p>
+
+
+  <!--#1-->
+  <div>
+     ARNA
+  </div>
+  <p id='speak'>Tutti i software e i materiali necessari per replicare le due componenti dell’opera sono disponibili su ARNA. 
+    L’Archivio dei Rituali del Nuovo Abitare.
+    Sono liberamente utilizzabili.
+  </p>
+
+
+  <!--#1-->
+  <div>
+     bye bye
+  </div>
+  <p id='speak'>bye bye
+  </p>
+
+  <!--#1-->
+  <div>
+     ......
+  </div>
+  <p id='speak'></p>
+
+
+
